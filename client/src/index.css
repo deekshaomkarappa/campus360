@@ -82,3 +82,29 @@ h2 {
 .food-card button:hover {
   background: #ea580c;
 }
+.cart {
+  background: white;
+  max-width: 500px;
+  margin: 40px auto 0;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.12);
+  text-align: left;
+}
+
+.cart h3 {
+  margin-top: 0;
+}
+
+.cart-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.cart-row.total {
+  font-weight: bold;
+  color: #4338ca;
+  border-bottom: none;
+}

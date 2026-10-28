@@ -1,4 +1,4 @@
-function FoodCard({ name, price, isVeg, category }) {
+function FoodCard({ name, price, isVeg, category, onAdd }) {
   return (
     <div className="food-card">
       <span className={isVeg ? "badge veg" : "badge nonveg"}>
@@ -7,7 +7,7 @@ function FoodCard({ name, price, isVeg, category }) {
       <h3>{name}</h3>
       <p className="category">{category}</p>
       <p className="price">₹{price}</p>
-      <button>Add to Cart</button>
+      <button onClick={onAdd}>Add to Cart</button>
     </div>
   );
 }
