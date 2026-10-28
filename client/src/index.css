@@ -21,3 +21,64 @@ h2 {
   color: #f97316;
   margin: 8px 0 16px;
 }
+.food-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  margin: 40px auto 0;
+}
+
+.food-card {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.12);
+  text-align: left;
+}
+
+.food-card h3 {
+  margin: 12px 0 4px;
+}
+
+.category {
+  color: #6b7280;
+  margin: 0;
+}
+
+.price {
+  font-size: 20px;
+  font-weight: bold;
+  color: #4338ca;
+  margin: 10px 0;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: white;
+}
+
+.badge.veg {
+  background: #16a34a;
+}
+
+.badge.nonveg {
+  background: #dc2626;
+}
+
+.food-card button {
+  width: 100%;
+  background: #f97316;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.food-card button:hover {
+  background: #ea580c;
+}
