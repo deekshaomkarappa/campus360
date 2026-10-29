@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import FoodCard from "./components/FoodCard";
 
-const foodItems = [
-  { id: 1, name: "Veg Burger", price: 60, isVeg: true, category: "Snacks" },
-  { id: 2, name: "Masala Dosa", price: 50, isVeg: true, category: "Breakfast" },
-  { id: 3, name: "Chicken Biryani", price: 120, isVeg: false, category: "Meals" },
-  { id: 4, name: "Cold Coffee", price: 40, isVeg: true, category: "Drinks" },
-];
-
 function App() {
+  const [foodItems, setFoodItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [cart, setCart] = useState([]);
+
+  useEffect(() => {
+    axios
+      .get("/api/menu")
+      .then((res) => {
+        setFoodItems(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Could not load the menu. Is the server running?");
+        setLoading(false);
+      });
+  }, []);
 
   function addToCart(item) {
     const existing = cart.find((c) => c.id === item.id);
@@ -31,6 +41,9 @@ function App() {
       <h1>Campus 360</h1>
       <h2>Smart Canteen</h2>
       <p>Order your food online and skip the queue.</p>
+
+      {loading && <p>Loading menu...</p>}
+      {error && <p style={{ color: "#dc2626" }}>{error}</p>}
 
       <div className="food-grid">
         {foodItems.map((item) => (
