@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import FoodCard from "./components/FoodCard";
+import RegisterForm from "./components/RegisterForm";
 
 function App() {
   const [foodItems, setFoodItems] = useState([]);
@@ -79,6 +80,8 @@ function App() {
           </>
         )}
       </div>
+
+      <RegisterForm />
     </div>
   );
 }
