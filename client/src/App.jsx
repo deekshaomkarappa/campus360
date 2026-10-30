@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import FoodCard from "./components/FoodCard";
 import RegisterForm from "./components/RegisterForm";
+import LoginForm from "./components/LoginForm";
 
 function App() {
   const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cart, setCart] = useState([]);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     axios
@@ -35,6 +37,13 @@ function App() {
     }
   }
 
+  function logout() {
+    axios.post("/api/auth/logout").finally(() => {
+      setUser(null);
+      setCart([]);
+    });
+  }
+
   const total = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
 
   return (
@@ -42,6 +51,15 @@ function App() {
       <h1>Campus 360</h1>
       <h2>Smart Canteen</h2>
       <p>Order your food online and skip the queue.</p>
+
+      {user && (
+        <div className="welcome-bar">
+          <span>
+            Welcome, <strong>{user.name}</strong> ({user.role})
+          </span>
+          <button onClick={logout}>Logout</button>
+        </div>
+      )}
 
       {loading && <p>Loading menu...</p>}
       {error && <p style={{ color: "#dc2626" }}>{error}</p>}
@@ -81,7 +99,8 @@ function App() {
         )}
       </div>
 
-      <RegisterForm />
+      {!user && <LoginForm onLogin={setUser} />}
+      {!user && <RegisterForm />}
     </div>
   );
 }

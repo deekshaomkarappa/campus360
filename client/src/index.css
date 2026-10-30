@@ -108,3 +108,48 @@ h2 {
   color: #4338ca;
   border-bottom: none;
 }
+.welcome-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 500px;
+  margin: 20px auto 0;
+  padding: 12px 16px;
+  background: #e0e7ff;
+  border-radius: 10px;
+}
+
+.welcome-bar button {
+  background: #4338ca;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.register-form label {
+  margin-right: 8px;
+}
+
+.register-form input {
+  margin-right: 20px;
+}
+.welcome-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 500px;
+  margin: 20px auto 0;
+  padding: 12px 16px;
+  background: #e0e7ff;
+  border-radius: 10px;
+}
+
+.welcome-bar button {
+  background: #4338ca;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
