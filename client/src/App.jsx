@@ -3,6 +3,7 @@ import axios from "axios";
 import FoodCard from "./components/FoodCard";
 import RegisterForm from "./components/RegisterForm";
 import LoginForm from "./components/LoginForm";
+import MyOrders from "./components/MyOrders";
 
 function App() {
   const [foodItems, setFoodItems] = useState([]);
@@ -10,8 +11,12 @@ function App() {
   const [error, setError] = useState("");
   const [cart, setCart] = useState([]);
   const [user, setUser] = useState(null);
+  const [orderType, setOrderType] = useState("pickup");
+  const [orderMessage, setOrderMessage] = useState("");
+  const [orderIsError, setOrderIsError] = useState(false);
+  const [ordersKey, setOrdersKey] = useState(0);
 
-  useEffect(() => {
+  function loadMenu() {
     axios
       .get("/api/menu")
       .then((res) => {
@@ -22,6 +27,10 @@ function App() {
         setError("Could not load the menu. Is the server running?");
         setLoading(false);
       });
+  }
+
+  useEffect(() => {
+    loadMenu();
   }, []);
 
   function addToCart(item) {
@@ -41,7 +50,31 @@ function App() {
     axios.post("/api/auth/logout").finally(() => {
       setUser(null);
       setCart([]);
+      setOrderMessage("");
     });
+  }
+
+  function placeOrder() {
+    setOrderMessage("");
+    axios
+      .post("/api/orders", {
+        orderType,
+        items: cart.map((c) => ({ id: c.id, quantity: c.quantity })),
+      })
+      .then((res) => {
+        setOrderIsError(false);
+        setOrderMessage(
+          `Order placed! Your order number is ${res.data.order.orderNumber}`
+        );
+        setCart([]);
+        setOrdersKey((k) => k + 1);
+      })
+      .catch((err) => {
+        setOrderIsError(true);
+        setOrderMessage(
+          err.response?.data?.message || "Could not place the order"
+        );
+      });
   }
 
   const total = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
@@ -95,9 +128,46 @@ function App() {
               <span>Total</span>
               <span>₹{total}</span>
             </div>
+
+            {user ? (
+              <div className="order-box">
+                <label>
+                  <input
+                    type="radio"
+                    checked={orderType === "pickup"}
+                    onChange={() => setOrderType("pickup")}
+                  />{" "}
+                  Pickup
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    checked={orderType === "dine-in"}
+                    onChange={() => setOrderType("dine-in")}
+                  />{" "}
+                  Dine-in
+                </label>
+                <p className="note">
+                  Payment: cash at the counter (demo, no real payment).
+                </p>
+                <button className="order-btn" onClick={placeOrder}>
+                  Place Order
+                </button>
+              </div>
+            ) : (
+              <p className="note">Please log in below to place your order.</p>
+            )}
           </>
         )}
+
+        {orderMessage && (
+          <p style={{ color: orderIsError ? "#dc2626" : "#16a34a", fontWeight: "bold" }}>
+            {orderMessage}
+          </p>
+        )}
       </div>
+
+      {user && <MyOrders refreshKey={ordersKey} />}
 
       {!user && <LoginForm onLogin={setUser} />}
       {!user && <RegisterForm />}
