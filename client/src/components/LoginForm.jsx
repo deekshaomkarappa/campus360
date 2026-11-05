@@ -25,8 +25,9 @@ function LoginForm({ onLogin }) {
       <h3>Login</h3>
 
       <label>Email</label>
-      <input
-        type="email"
+<input
+  style={{ marginRight: "20px" }}
+  type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
