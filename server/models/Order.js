@@ -38,6 +38,9 @@ const orderSchema = new mongoose.Schema(
 
     // Cash at the counter or a clearly labelled demo. No real payment.
     paymentMethod: { type: String, enum: ['cash_at_counter', 'demo'], default: 'cash_at_counter' },
+
+    // User rating flag
+    isRated: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

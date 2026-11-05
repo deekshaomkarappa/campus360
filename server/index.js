@@ -23,9 +23,18 @@ const MEDIUM_FROM = 5;           // pending orders for Medium workload
 const HIGH_FROM = 10;            // pending orders for High workload
 
 const sampleFood = [
-  { name: 'Veg Burger', price: 60, isVeg: true, category: 'Snacks' },
+  { name: 'Idli', price: 30, isVeg: true, category: 'Breakfast' },
   { name: 'Masala Dosa', price: 50, isVeg: true, category: 'Breakfast' },
+  { name: 'Palav', price: 45, isVeg: true, category: 'Breakfast' },
+  { name: 'Tomato Bath', price: 40, isVeg: true, category: 'Breakfast' },
+  { name: 'Rice Rasam', price: 40, isVeg: true, category: 'Meals' },
+  { name: 'Chapati and Chutney', price: 40, isVeg: true, category: 'Meals' },
+  { name: 'Parota', price: 45, isVeg: true, category: 'Meals' },
+  { name: 'Biryani', price: 90, isVeg: false, category: 'Meals' },
   { name: 'Chicken Biryani', price: 120, isVeg: false, category: 'Meals' },
+  { name: 'Veg Burger', price: 60, isVeg: true, category: 'Snacks' },
+  { name: 'Maggi', price: 30, isVeg: true, category: 'Snacks' },
+  { name: 'Noodles', price: 50, isVeg: true, category: 'Snacks' },
   { name: 'Cold Coffee', price: 40, isVeg: true, category: 'Drinks' },
 ];
 
@@ -157,7 +166,7 @@ function publicUser(u) {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
@@ -168,7 +177,8 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(409).json({ message: 'This email is already registered' });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, passwordHash }); // always a student
+    const assignedRole = role === 'teacher' ? 'teacher' : 'student';
+    const user = await User.create({ name, email, passwordHash, role: assignedRole });
     res.status(201).json({ message: 'Registration successful', user: publicUser(user) });
   } catch (err) {
     sendError(res, err);
@@ -215,6 +225,9 @@ app.get('/api/menu', async (req, res) => {
         imageUrl: i.imageUrl,
         quantityAvailable: i.quantityAvailable,
         soldOut: i.quantityAvailable === 0,
+        rating: i.rating || 4.5,
+        numReviews: i.numReviews || 0,
+        isSpecial: i.isSpecial || false,
       }))
     );
   } catch (err) {
@@ -284,10 +297,11 @@ app.get('/api/orders/my', requireLogin, async (req, res) => {
           orderType: o.orderType,
           status: o.status,
           totalAmount: o.totalAmount,
-          items: o.items.map((i) => ({ name: i.name, quantity: i.quantity })),
+          items: o.items.map((i) => ({ foodItem: i.foodItem, name: i.name, quantity: i.quantity })),
           createdAt: o.createdAt,
           ordersAhead: inQueue ? position : null,
           estimatedWaitMinutes: inQueue ? (position + 1) * AVG_PREP_MINUTES : null,
+          isRated: o.isRated || false,
         };
       })
     );
@@ -313,6 +327,42 @@ app.post('/api/orders/:id/cancel', requireLogin, async (req, res) => {
   }
 });
 
+// ---------- RATING SYSTEM ----------
+app.post('/api/orders/:id/rate', requireLogin, async (req, res) => {
+  try {
+    const order = await Order.findOne({ _id: req.params.id, student: req.auth.id });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (order.status !== 'completed') {
+      return res.status(400).json({ message: 'Only completed orders can be rated' });
+    }
+    if (order.isRated) {
+      return res.status(400).json({ message: 'You have already rated this order' });
+    }
+    const { ratings } = req.body;
+    if (Array.isArray(ratings)) {
+      for (const r of ratings) {
+        const star = Number(r.rating);
+        if (star >= 1 && star <= 5) {
+          const food = await FoodItem.findById(r.foodItemId);
+          if (food) {
+            const currentTotal = (food.rating || 4.5) * (food.numReviews || 0);
+            const newReviews = (food.numReviews || 0) + 1;
+            const newRating = Number(((currentTotal + star) / newReviews).toFixed(1));
+            food.rating = newRating;
+            food.numReviews = newReviews;
+            await food.save();
+          }
+        }
+      }
+    }
+    order.isRated = true;
+    await order.save();
+    res.json({ message: 'Thank you for your rating!' });
+  } catch (err) {
+    sendError(res, err, 'Could not submit rating');
+  }
+});
+
 // ---------- NOTIFICATIONS ----------
 app.get('/api/notifications', requireLogin, async (req, res) => {
   const list = await Notification.find({ user: req.auth.id }).sort({ createdAt: -1 }).limit(15);
@@ -331,7 +381,7 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
     const dayStart = new Date();
     dayStart.setHours(0, 0, 0, 0);
     const finished = await Order.find({
-      status: { $in: ['ready', 'completed', 'cancelled'] },
+      status: { $in: ['ready', 'completed'] },
       updatedAt: { $gte: dayStart },
     }).sort({ updatedAt: -1 });
 
@@ -432,6 +482,7 @@ function cleanFood(body) {
     quantityAvailable,
     isVeg: body.isVeg !== false,
     isAvailable: body.isAvailable !== false,
+    isSpecial: body.isSpecial === true,
     imageUrl: (body.imageUrl || '').toString().trim(),
   };
 }
@@ -449,6 +500,9 @@ app.get('/api/admin/menu', requireAdmin, async (req, res) => {
       quantityAvailable: i.quantityAvailable,
       isAvailable: i.isAvailable,
       lowStock: i.quantityAvailable <= LOW_STOCK_LIMIT,
+      rating: i.rating || 4.5,
+      numReviews: i.numReviews || 0,
+      isSpecial: i.isSpecial || false,
     }))
   );
 });

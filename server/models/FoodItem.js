@@ -9,6 +9,9 @@ const foodItemSchema = new mongoose.Schema(
     imageUrl: { type: String, default: '' },
     quantityAvailable: { type: Number, default: 20, min: 0 },
     isAvailable: { type: Boolean, default: true },
+    rating: { type: Number, default: 4.5 },
+    numReviews: { type: Number, default: 0 },
+    isSpecial: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
