@@ -32,7 +32,7 @@ function playReadyChime() {
     gain2.connect(ctx.destination);
     osc2.start(now + 0.15);
     osc2.stop(now + 0.75);
-  } catch (err) {
+  } catch {
     // Audio context may require initial user click in some browsers
   }
 }

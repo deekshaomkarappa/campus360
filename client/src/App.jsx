@@ -7,8 +7,10 @@ import MyOrders from "./components/MyOrders";
 import AdminDashboard from "./components/AdminDashboard";
 import CrowdMeter from "./components/CrowdMeter";
 import Notifications from "./components/Notifications";
+import LostAndFound from "./components/LostAndFound";
 
 function App() {
+  const [currentModule, setCurrentModule] = useState("canteen"); // 'canteen' | 'lostfound' | 'navigation'
   const [foodItems, setFoodItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -127,8 +129,32 @@ function App() {
   return (
     <div className="page">
       <h1>Campus 360</h1>
-      <h2>Smart Canteen</h2>
-      <p>Order your food online and skip the queue.</p>
+      <p className="subhead-motto">Integrated Smart Campus Management Platform</p>
+
+      {/* Top Campus 360 Module Switcher */}
+      <div className="campus-modules-nav">
+        <button
+          type="button"
+          className={`module-pill ${currentModule === "canteen" ? "active" : ""}`}
+          onClick={() => setCurrentModule("canteen")}
+        >
+          🍔 Smart Canteen
+        </button>
+        <button
+          type="button"
+          className={`module-pill ${currentModule === "lostfound" ? "active" : ""}`}
+          onClick={() => setCurrentModule("lostfound")}
+        >
+          🔍 AI Lost & Found
+        </button>
+        <button
+          type="button"
+          className={`module-pill ${currentModule === "navigation" ? "active" : ""}`}
+          onClick={() => setCurrentModule("navigation")}
+        >
+          🗺️ Campus Navigation <span className="soon-chip">Coming Soon</span>
+        </button>
+      </div>
 
       {user && (
         <div className="welcome-bar">
@@ -142,236 +168,274 @@ function App() {
         </div>
       )}
 
-      {isAdmin && (
-        <div className="admin-nav-bar">
-          <button
-            type="button"
-            className={`admin-nav-btn ${adminView === "menu" ? "active" : ""}`}
-            onClick={() => setAdminView("menu")}
-          >
-            🍔 Food Menu & Search
-          </button>
-          <button
-            type="button"
-            className={`admin-nav-btn ${adminView === "panel" ? "active" : ""}`}
-            onClick={() => setAdminView("panel")}
-          >
-            ⚙️ Canteen Admin Panel
-          </button>
-        </div>
-      )}
-
-      {isAdmin && adminView === "panel" ? (
-        <AdminDashboard />
-      ) : (
+      {/* MODULE 1: SMART CANTEEN */}
+      {currentModule === "canteen" && (
         <>
-          <CrowdMeter />
-
-          {/* Search & Category Filter Bar */}
-          <div className="search-filter-box">
-            <div className="search-input-wrapper">
-              <input
-                type="text"
-                className="search-input"
-                placeholder="🔍 Search your food..."
-                aria-label="Search your food"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  className="clear-search-btn"
-                  onClick={() => setSearchQuery("")}
-                  title="Clear search"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Quick Search Tag Pills */}
-            <div className="quick-search-row">
-              <span className="quick-label">⚡ Quick search:</span>
-              <div className="quick-tags">
-                {quickSearchTags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    className={`quick-tag ${
-                      searchQuery.toLowerCase() === tag.toLowerCase() ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      if (searchQuery.toLowerCase() === tag.toLowerCase()) {
-                        setSearchQuery("");
-                      } else {
-                        setSearchQuery(tag);
-                        setSelectedCategory("All");
-                      }
-                    }}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-options">
-              <div className="category-pills">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    className={`pill ${selectedCategory === cat ? "active" : ""}`}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-              <label className="veg-filter-label">
-                <input
-                  type="checkbox"
-                  checked={vegOnly}
-                  onChange={(e) => setVegOnly(e.target.checked)}
-                />
-                🥬 Veg Only
-              </label>
-            </div>
-          </div>
-
-          {loading && <p>Loading menu...</p>}
-          {error && <p style={{ color: "#dc2626" }}>{error}</p>}
-
-          {filteredFoodItems.length === 0 && !loading && (
-            <div className="no-food-box">
-              <p>
-                No food item matches "<strong>{searchQuery || selectedCategory}</strong>"
-              </p>
-              {(searchQuery || selectedCategory !== "All" || vegOnly) && (
-                <button
-                  type="button"
-                  className="reset-search-btn"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("All");
-                    setVegOnly(false);
-                  }}
-                >
-                  Clear Filters
-                </button>
-              )}
+          {isAdmin && (
+            <div className="admin-nav-bar">
+              <button
+                type="button"
+                className={`admin-nav-btn ${adminView === "menu" ? "active" : ""}`}
+                onClick={() => setAdminView("menu")}
+              >
+                🍔 Food Menu & Search
+              </button>
+              <button
+                type="button"
+                className={`admin-nav-btn ${adminView === "panel" ? "active" : ""}`}
+                onClick={() => setAdminView("panel")}
+              >
+                ⚙️ Canteen Admin Panel
+              </button>
             </div>
           )}
 
-          {specials.length > 0 && !searchQuery && selectedCategory === "All" && (
-            <div className="specials-container">
-              <h3 className="specials-title">🔥 Today's Chef's Specials</h3>
-              <div className="specials-grid">
-                {specials.map((item) => (
+          {isAdmin && adminView === "panel" ? (
+            <AdminDashboard />
+          ) : (
+            <>
+              <h2>Smart Canteen</h2>
+              <p>Order your food online and skip the queue.</p>
+
+              <CrowdMeter />
+
+              {/* Search & Category Filter Bar */}
+              <div className="search-filter-box">
+                <div className="search-input-wrapper">
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="🔍 Search your food..."
+                    aria-label="Search your food"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="clear-search-btn"
+                      onClick={() => setSearchQuery("")}
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Search Tag Pills */}
+                <div className="quick-search-row">
+                  <span className="quick-label">⚡ Quick search:</span>
+                  <div className="quick-tags">
+                    {quickSearchTags.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`quick-tag ${
+                          searchQuery.toLowerCase() === tag.toLowerCase() ? "active" : ""
+                        }`}
+                        onClick={() => {
+                          if (searchQuery.toLowerCase() === tag.toLowerCase()) {
+                            setSearchQuery("");
+                          } else {
+                            setSearchQuery(tag);
+                            setSelectedCategory("All");
+                          }
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="filter-options">
+                  <div className="category-pills">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        className={`pill ${selectedCategory === cat ? "active" : ""}`}
+                        onClick={() => setSelectedCategory(cat)}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="veg-filter-label">
+                    <input
+                      type="checkbox"
+                      checked={vegOnly}
+                      onChange={(e) => setVegOnly(e.target.checked)}
+                    />
+                    🥬 Veg Only
+                  </label>
+                </div>
+              </div>
+
+              {loading && <p>Loading menu...</p>}
+              {error && <p style={{ color: "#dc2626" }}>{error}</p>}
+
+              {filteredFoodItems.length === 0 && !loading && (
+                <div className="no-food-box">
+                  <p>
+                    No food item matches "<strong>{searchQuery || selectedCategory}</strong>"
+                  </p>
+                  {(searchQuery || selectedCategory !== "All" || vegOnly) && (
+                    <button
+                      type="button"
+                      className="reset-search-btn"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedCategory("All");
+                        setVegOnly(false);
+                      }}
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Today's Specials */}
+              {specials.length > 0 && !searchQuery && selectedCategory === "All" && (
+                <div className="specials-container">
+                  <h3 className="specials-title">🔥 Today's Chef's Specials</h3>
+                  <div className="specials-grid">
+                    {specials.map((item) => (
+                      <FoodCard
+                        key={`special-${item.id}`}
+                        name={item.name}
+                        price={item.price}
+                        isVeg={item.isVeg}
+                        category={item.category}
+                        rating={item.rating}
+                        numReviews={item.numReviews}
+                        isSpecial={true}
+                        onAdd={() => addToCart(item)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="food-grid">
+                {filteredFoodItems.map((item) => (
                   <FoodCard
-                    key={`special-${item.id}`}
+                    key={item.id}
                     name={item.name}
                     price={item.price}
                     isVeg={item.isVeg}
                     category={item.category}
                     rating={item.rating}
                     numReviews={item.numReviews}
-                    isSpecial={true}
+                    isSpecial={item.isSpecial}
                     onAdd={() => addToCart(item)}
                   />
                 ))}
               </div>
-            </div>
-          )}
 
-          <div className="food-grid">
-            {filteredFoodItems.map((item) => (
-              <FoodCard
-                key={item.id}
-                name={item.name}
-                price={item.price}
-                isVeg={item.isVeg}
-                category={item.category}
-                rating={item.rating}
-                numReviews={item.numReviews}
-                isSpecial={item.isSpecial}
-                onAdd={() => addToCart(item)}
-              />
-            ))}
-          </div>
-
-          <div className="cart">
-            <h3>Your Cart</h3>
-            {cart.length === 0 ? (
-              <p>Your cart is empty.</p>
-            ) : (
-              <>
-                {cart.map((c) => (
-                  <div className="cart-row" key={c.id}>
-                    <span>
-                      {c.name} × {c.quantity}
-                    </span>
-                    <span>₹{c.price * c.quantity}</span>
-                  </div>
-                ))}
-                <div className="cart-row total">
-                  <span>Total</span>
-                  <span>₹{total}</span>
-                </div>
-
-                {user ? (
-                  <div className="order-box">
-                    <label>
-                      <input
-                        type="radio"
-                        checked={orderType === "pickup"}
-                        onChange={() => setOrderType("pickup")}
-                      />{" "}
-                      Pickup
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        checked={orderType === "dine-in"}
-                        onChange={() => setOrderType("dine-in")}
-                      />{" "}
-                      Dine-in
-                    </label>
-                    <p className="note">
-                      Payment: cash at the counter (demo, no real payment).
-                    </p>
-                    <button className="order-btn" onClick={placeOrder}>
-                      Place Order
-                    </button>
-                  </div>
+              <div className="cart">
+                <h3>Your Cart</h3>
+                {cart.length === 0 ? (
+                  <p>Your cart is empty.</p>
                 ) : (
-                  <p className="note">Please log in below to place your order.</p>
-                )}
-              </>
-            )}
-            {orderMessage && (
-              <p
-                style={{
-                  color: orderIsError ? "#dc2626" : "#16a34a",
-                  fontWeight: "bold",
-                }}
-              >
-                {orderMessage}
-              </p>
-            )}
-          </div>
+                  <>
+                    {cart.map((c) => (
+                      <div className="cart-row" key={c.id}>
+                        <span>
+                          {c.name} × {c.quantity}
+                        </span>
+                        <span>₹{c.price * c.quantity}</span>
+                      </div>
+                    ))}
+                    <div className="cart-row total">
+                      <span>Total</span>
+                      <span>₹{total}</span>
+                    </div>
 
-          {user && (
-            <MyOrders
-              refreshKey={ordersKey}
-              onOrderCancelled={() => {
-                loadMenu();
-                setOrdersKey((k) => k + 1);
-              }}
-            />
+                    {user ? (
+                      <div className="order-box">
+                        <label>
+                          <input
+                            type="radio"
+                            checked={orderType === "pickup"}
+                            onChange={() => setOrderType("pickup")}
+                          />{" "}
+                          Pickup
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            checked={orderType === "dine-in"}
+                            onChange={() => setOrderType("dine-in")}
+                          />{" "}
+                          Dine-in
+                        </label>
+                        <p className="note">
+                          Payment: cash at the counter (demo, no real payment).
+                        </p>
+                        <button className="order-btn" onClick={placeOrder}>
+                          Place Order
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="note">Please log in below to place your order.</p>
+                    )}
+                  </>
+                )}
+                {orderMessage && (
+                  <p
+                    style={{
+                      color: orderIsError ? "#dc2626" : "#16a34a",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {orderMessage}
+                  </p>
+                )}
+              </div>
+
+              {user && (
+                <MyOrders
+                  refreshKey={ordersKey}
+                  onOrderCancelled={() => {
+                    loadMenu();
+                    setOrdersKey((k) => k + 1);
+                  }}
+                />
+              )}
+            </>
           )}
         </>
+      )}
+
+      {/* MODULE 2: AI LOST & FOUND */}
+      {currentModule === "lostfound" && (
+        <LostAndFound user={user} />
+      )}
+
+      {/* MODULE 3: CAMPUS NAVIGATION (COMING SOON PREVIEW) */}
+      {currentModule === "navigation" && (
+        <div className="nav-placeholder-card">
+          <div className="nav-icon-large">🗺️</div>
+          <h2>Campus 360 Navigation System</h2>
+          <p className="note" style={{ maxWidth: "560px", margin: "10px auto 20px", fontSize: "15px" }}>
+            Interactive 3D & 2D campus pathfinder, real-time classroom / lab locator, faculty room directory, and accessible routes for students and visitors.
+          </p>
+          <div className="nav-preview-badges">
+            <span className="badge" style={{ background: "#4338ca" }}>📍 Indoor Mapping</span>
+            <span className="badge" style={{ background: "#059669" }}>🚶 Shortest Route Pathfinder</span>
+            <span className="badge" style={{ background: "#d97706" }}>♿ Accessible Pathways</span>
+          </div>
+          <button
+            type="button"
+            className="order-btn"
+            style={{ maxWidth: "260px", margin: "24px auto 0" }}
+            onClick={() => setCurrentModule("lostfound")}
+          >
+            ← Back to AI Lost & Found
+          </button>
+        </div>
       )}
 
       {!user && <LoginForm onLogin={setUser} />}

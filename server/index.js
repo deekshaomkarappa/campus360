@@ -5,15 +5,79 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const FoodItem = require('./models/FoodItem');
 const User = require('./models/User');
 const Order = require('./models/Order');
 const Notification = require('./models/Notification');
+const LostFoundItem = require('./models/LostFoundItem');
+const { extractAiKeywords, calculateMatchScore, parseNaturalSearch } = require('./utils/aiMatcher');
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// ---------- FILE UPLOADS CONFIGURATION ----------
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `item-${uniqueSuffix}${ext}`);
+  },
+});
+
+const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowedExtensions.includes(ext) && allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPG, JPEG, PNG, and WEBP images are allowed.'));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
+});
+
+// ---------- IMAGE UPLOAD ENDPOINT ----------
+app.post('/api/upload', (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' });
+      }
+      return res.status(400).json({ message: `Upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file uploaded' });
+    }
+    const imageUrl = `/uploads/${req.file.filename}`;
+    res.json({
+      message: 'Image uploaded successfully',
+      imageUrl,
+      filename: req.file.filename,
+    });
+  });
+});
 
 // ---------- SETTINGS (change these numbers to tune the canteen) ----------
 const AVG_PREP_MINUTES = 5;      // average minutes to prepare one order
@@ -589,6 +653,282 @@ app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
     });
   } catch (err) {
     sendError(res, err);
+  }
+});
+
+// ---------- AI LOST & FOUND MODULE ----------
+app.get('/api/lost-found', async (req, res) => {
+  try {
+    const { type, category, status, search } = req.query;
+    const filter = {};
+    if (type && type !== 'all') filter.type = type;
+    if (category && category !== 'all') filter.category = category;
+    if (status && status !== 'all') filter.status = status;
+    if (search && search.trim()) {
+      const q = search.trim();
+      filter.$or = [
+        { title: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } },
+        { location: { $regex: q, $options: 'i' } },
+        { category: { $regex: q, $options: 'i' } },
+        { aiKeywords: { $in: [new RegExp(q, 'i')] } },
+      ];
+    }
+    const items = await LostFoundItem.find(filter).sort({ createdAt: -1 }).limit(50);
+    res.json(items);
+  } catch (err) {
+    sendError(res, err, 'Could not load lost and found items');
+  }
+});
+
+app.get('/api/lost-found/stats', async (req, res) => {
+  try {
+    const totalLost = await LostFoundItem.countDocuments({ type: 'lost' });
+    const totalFound = await LostFoundItem.countDocuments({ type: 'found' });
+    const claimed = await LostFoundItem.countDocuments({ status: 'claimed' });
+    const activeMatches = await LostFoundItem.countDocuments({ status: 'matched' });
+    res.json({ totalLost, totalFound, claimed, activeMatches, totalItems: totalLost + totalFound });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.get('/api/lost-found/my', requireLogin, async (req, res) => {
+  try {
+    const items = await LostFoundItem.find({ reportedBy: req.auth.id }).sort({ createdAt: -1 });
+    res.json(items);
+  } catch (err) {
+    sendError(res, err, 'Could not load your reported items');
+  }
+});
+
+app.get('/api/lost-found/matches/:id', async (req, res) => {
+  try {
+    const targetItem = await LostFoundItem.findById(req.params.id);
+    if (!targetItem) return res.status(404).json({ message: 'Item not found' });
+
+    const oppositeType = targetItem.type === 'lost' ? 'found' : 'lost';
+    const candidates = await LostFoundItem.find({
+      type: oppositeType,
+      _id: { $ne: targetItem._id },
+      status: { $in: ['open', 'matched'] },
+    });
+
+    const matches = candidates
+      .map((c) => {
+        const lost = targetItem.type === 'lost' ? targetItem : c;
+        const found = targetItem.type === 'found' ? targetItem : c;
+        const result = calculateMatchScore(lost, found);
+        return {
+          item: c,
+          score: result.score,
+          tier: result.tier,
+          isMatch: result.isMatch,
+          reasons: result.reasons,
+          summary: result.summary,
+        };
+      })
+      .filter((m) => m.score >= 40)
+      .sort((a, b) => b.score - a.score);
+
+    res.json({
+      targetItem,
+      matches,
+      totalMatches: matches.length,
+    });
+  } catch (err) {
+    sendError(res, err, 'Could not calculate AI matches');
+  }
+});
+
+app.post('/api/lost-found', requireLogin, async (req, res) => {
+  try {
+    const { title, type, category, description, location, date, imageUrl, contactPhone, secretQuestion, secretAnswer } = req.body;
+    if (!title || !type || !category || !description || !location) {
+      return res.status(400).json({ message: 'Title, type, category, description, and location are required' });
+    }
+    const user = await User.findById(req.auth.id);
+    if (!user) return res.status(401).json({ message: 'Please log in again' });
+
+    const aiKeywords = extractAiKeywords(title, description, category, location);
+
+    const newItem = await LostFoundItem.create({
+      title: title.trim(),
+      type,
+      category,
+      description: description.trim(),
+      location: location.trim(),
+      date: date ? new Date(date) : new Date(),
+      imageUrl: (imageUrl || '').trim(),
+      contactPhone: (contactPhone || '').trim(),
+      secretQuestion: (secretQuestion || '').trim(),
+      secretAnswer: (secretAnswer || '').trim(),
+      reportedBy: user._id,
+      reporterName: user.name,
+      reporterEmail: user.email,
+      aiKeywords,
+    });
+
+    // Run Instant AI Match Detection against opposite type items
+    const oppositeType = type === 'lost' ? 'found' : 'lost';
+    const potentialMatches = await LostFoundItem.find({
+      type: oppositeType,
+      status: { $in: ['open', 'matched'] },
+      _id: { $ne: newItem._id },
+    });
+
+    let bestMatch = null;
+    let highestScore = 0;
+
+    for (const cand of potentialMatches) {
+      const lost = type === 'lost' ? newItem : cand;
+      const found = type === 'found' ? newItem : cand;
+      const matchResult = calculateMatchScore(lost, found);
+      if (matchResult.score > highestScore) {
+        highestScore = matchResult.score;
+        bestMatch = { item: cand, ...matchResult };
+      }
+    }
+
+    // If strong match (score >= 60%), notify both parties & update status
+    if (bestMatch && bestMatch.score >= 60) {
+      newItem.status = 'matched';
+      newItem.matchedItem = bestMatch.item._id;
+      await newItem.save();
+
+      bestMatch.item.status = 'matched';
+      bestMatch.item.matchedItem = newItem._id;
+      await bestMatch.item.save();
+
+      // Notify the other user
+      await Notification.create({
+        user: bestMatch.item.reportedBy,
+        type: 'match_found',
+        message: `⚡ AI Match (${bestMatch.score}%)! Someone reported a matching ${newItem.title} (${newItem.type.toUpperCase()}) near ${newItem.location}.`,
+        item: newItem._id,
+      });
+
+      // Notify the creator
+      await Notification.create({
+        user: user._id,
+        type: 'match_found',
+        message: `⚡ AI Match (${bestMatch.score}%)! Found potential match with ${bestMatch.item.title} reported near ${bestMatch.item.location}.`,
+        item: bestMatch.item._id,
+      });
+    }
+
+    res.status(201).json({
+      message: 'Item reported successfully',
+      item: newItem,
+      aiMatchDetected: highestScore >= 60,
+      matchScore: highestScore,
+      matchSummary: bestMatch ? bestMatch.summary : null,
+    });
+  } catch (err) {
+    sendError(res, err, 'Could not report item');
+  }
+});
+
+app.post('/api/lost-found/:id/claim', requireLogin, async (req, res) => {
+  try {
+    const item = await LostFoundItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    if (String(item.reportedBy) === String(req.auth.id)) {
+      return res.status(400).json({ message: 'You reported this item yourself' });
+    }
+    const user = await User.findById(req.auth.id);
+    const { answer } = req.body;
+
+    item.claimedBy = user._id;
+    item.claimAnswer = (answer || '').trim();
+    await item.save();
+
+    await Notification.create({
+      user: item.reportedBy,
+      type: 'claim_received',
+      message: `📩 Claim received! ${user.name} submitted an ownership claim on "${item.title}". Answer: "${answer || 'N/A'}"`,
+      item: item._id,
+    });
+
+    res.json({ message: 'Claim submitted to the finder/reporter! They will verify and contact you.' });
+  } catch (err) {
+    sendError(res, err, 'Could not submit claim');
+  }
+});
+
+app.patch('/api/lost-found/:id/resolve', requireLogin, async (req, res) => {
+  try {
+    const item = await LostFoundItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    const user = await User.findById(req.auth.id);
+    const isOwnerOrAdmin = String(item.reportedBy) === String(req.auth.id) || (user && user.role === 'admin');
+    if (!isOwnerOrAdmin) return res.status(403).json({ message: 'Permission denied' });
+
+    item.status = 'claimed';
+    await item.save();
+    res.json({ message: 'Item marked as reunited / claimed! 🎉' });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.delete('/api/lost-found/:id', requireLogin, async (req, res) => {
+  try {
+    const item = await LostFoundItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    const user = await User.findById(req.auth.id);
+    const isOwnerOrAdmin = String(item.reportedBy) === String(req.auth.id) || (user && user.role === 'admin');
+    if (!isOwnerOrAdmin) return res.status(403).json({ message: 'Permission denied' });
+
+    await LostFoundItem.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Item removed successfully' });
+  } catch (err) {
+    sendError(res, err);
+  }
+});
+
+app.get('/api/lost-found/ai-search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || !q.trim()) {
+      const items = await LostFoundItem.find().sort({ createdAt: -1 }).limit(20);
+      return res.json({ items, parsed: {} });
+    }
+
+    const parsed = parseNaturalSearch(q);
+    const candidateQuery = {};
+    if (parsed.detectedType) candidateQuery.type = parsed.detectedType;
+    if (parsed.detectedCategory) candidateQuery.category = parsed.detectedCategory;
+
+    const items = await LostFoundItem.find(candidateQuery).sort({ createdAt: -1 });
+
+    const ranked = items
+      .map((item) => {
+        let score = 0;
+        const itemKw = new Set(item.aiKeywords || extractAiKeywords(item.title, item.description));
+        let matches = 0;
+        parsed.keywords.forEach((kw) => {
+          if (itemKw.has(kw) || item.title.toLowerCase().includes(kw) || item.description.toLowerCase().includes(kw)) {
+            matches++;
+          }
+        });
+
+        score += matches * 20;
+        if (parsed.detectedCategory && item.category === parsed.detectedCategory) score += 25;
+        if (parsed.detectedZone && item.location.toLowerCase().includes(parsed.detectedZone)) score += 20;
+
+        return { item, relevanceScore: Math.min(100, score) };
+      })
+      .filter((r) => r.relevanceScore > 0)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    res.json({
+      items: ranked.map((r) => ({ ...r.item.toObject(), relevanceScore: r.relevanceScore })),
+      parsed,
+      count: ranked.length,
+    });
+  } catch (err) {
+    sendError(res, err, 'AI search failed');
   }
 });
 
