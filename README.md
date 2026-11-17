@@ -1,52 +1,16 @@
-SMART CAMPUS 360
+# React + Vite
 
-AI-Powered Campus Navigation, Lost & Found and Smart Canteen Booking System
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-📌 Project Overview
+Currently, two official plugins are available:
 
-SMART CAMPUS 360 is a web-based campus management platform designed to make campus activities easier and more convenient for students and administrators.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-It integrates campus navigation, lost and found management, and smart canteen booking into a single platform.
+## React Compiler
 
-🎯 Objectives
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-- Provide easy navigation within the college campus.
-- Help students find lost belongings.
-- Allow students to browse menus and book food online.
-- Improve campus management and student convenience.
+## Expanding the Oxlint configuration
 
-✨ Main Modules
-
-1. Smart Campus Navigation
-
-- Helps students locate classrooms, laboratories, and other campus facilities.
-- Provides directions using campus photographs.
-
-2. Lost and Found
-
-- Allows students to report lost items.
-- Helps students find and claim missing belongings.
-
-3. Smart Canteen Booking
-
-- Displays available food items.
-- Allows students to place food orders.
-- Helps canteen administrators manage orders and food availability.
-
-🛠️ Technologies Used
-
-- Frontend: HTML, CSS, JavaScript
-- Backend: Node.js, Express.js
-- Database: MongoDB
-- Version Control: Git and GitHub
-
-🚀 Future Enhancements
-
-- AI-based campus assistance.
-- Real-time order tracking.
-- Mobile application support.
-- Improved campus navigation.
-
-👩‍💻 Project Type
-
-College Mini Project – Computer Science and Engineering
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
